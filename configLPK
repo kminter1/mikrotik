@@ -1,0 +1,82 @@
+# 2024-01-31 19:59:51 by RouterOS 7.12rc1
+# software id = 2ZHG-QEAT
+#
+# model = CCR1009-8G-1S
+# serial number = 606C05EA9485
+/interface wireless security-profiles
+set [ find default=yes ] supplicant-identity=MikroTik
+/ip pool
+add name=dhcp_pool0 ranges=192.168.99.2-192.168.99.254
+/ip dhcp-server
+add address-pool=dhcp_pool0 interface=ether5 name=dhcp1
+/port
+set 0 name=serial0
+set 1 name=serial1
+/routing table
+add fib name=to_ISP1
+add fib name=to_ISP2
+/ip address
+add address=192.168.99.1/24 interface=ether5 network=192.168.99.0
+/ip dhcp-client
+add add-default-route=no interface=ether1 use-peer-ntp=no
+add add-default-route=no interface=ether2 use-peer-ntp=no
+/ip dhcp-server network
+add address=192.168.99.0/24 gateway=192.168.99.1
+/ip dns
+set allow-remote-requests=yes servers=8.8.8.8
+/ip firewall mangle
+add action=accept chain=prerouting dst-address=192.168.100.0/24 in-interface=\
+    ether5
+add action=accept chain=prerouting dst-address=192.168.1.0/24 in-interface=\
+    ether5
+add action=mark-connection chain=prerouting connection-mark=no-mark \
+    in-interface=ether1 new-connection-mark=ISP1_conn
+add action=mark-connection chain=prerouting connection-mark=no-mark \
+    in-interface=ether2 new-connection-mark=ISP2_conn passthrough=yes
+add action=mark-connection chain=prerouting connection-mark=no-mark \
+    dst-address-type=!local in-interface=ether5 new-connection-mark=ISP1_conn \
+    passthrough=yes per-connection-classifier=both-addresses-and-ports:2/0
+add action=mark-connection chain=prerouting connection-mark=no-mark \
+    dst-address-type=!local in-interface=ether5 new-connection-mark=ISP2_conn \
+    passthrough=yes per-connection-classifier=both-addresses-and-ports:2/1
+add action=mark-routing chain=prerouting connection-mark=ISP1_conn \
+    in-interface=ether5 new-routing-mark=to_ISP1 passthrough=yes
+add action=mark-routing chain=prerouting connection-mark=ISP2_conn \
+    in-interface=ether5 new-routing-mark=to_ISP2 passthrough=yes
+add action=mark-routing chain=output connection-mark=ISP1_conn \
+    new-routing-mark=to_ISP1
+add action=mark-routing chain=output connection-mark=ISP2_conn \
+    new-routing-mark=to_ISP2
+/ip firewall nat
+add action=masquerade chain=srcnat out-interface=ether1
+add action=masquerade chain=srcnat out-interface=ether2
+/ip route
+add check-gateway=ping disabled=yes distance=1 dst-address=0.0.0.0/0 gateway=\
+    192.168.100.1 pref-src="" routing-table=to_ISP1 scope=30 \
+    suppress-hw-offload=no target-scope=10
+add check-gateway=ping disabled=yes distance=1 dst-address=0.0.0.0/0 gateway=\
+    192.168.1.1 pref-src="" routing-table=to_ISP1 scope=30 \
+    suppress-hw-offload=no target-scope=10
+add disabled=yes distance=1 dst-address=0.0.0.0/0 gateway=192.168.100.1 \
+    pref-src="" routing-table=main scope=30 suppress-hw-offload=no \
+    target-scope=10
+add disabled=yes distance=2 dst-address=0.0.0.0/0 gateway=192.168.1.1 \
+    pref-src="" routing-table=main scope=30 suppress-hw-offload=no \
+    target-scope=10
+add dst-address=8.8.8.8 gateway=192.168.100.1 scope=10
+add dst-address=8.8.4.4 gateway=192.168.1.1 scope=10
+add check-gateway=ping distance=1 gateway=8.8.8.8 routing-table=to_ISP1 \
+    target-scope=11
+add check-gateway=ping disabled=no distance=2 dst-address=0.0.0.0/0 gateway=\
+    8.8.4.4 pref-src="" routing-table=to_ISP1 scope=30 suppress-hw-offload=no \
+    target-scope=11
+add check-gateway=ping distance=1 gateway=8.8.4.4 routing-table=to_ISP2 \
+    target-scope=11
+add check-gateway=ping distance=2 gateway=8.8.8.8 routing-table=to_ISP2 \
+    target-scope=11
+/system clock
+set time-zone-name=Asia/Bangkok
+/system note
+set show-at-login=no
+/user-manager
+set certificate=*0
