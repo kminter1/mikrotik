@@ -1,0 +1,43 @@
+Bruteforce login prevention
+(Redirected from Bruteforce login prevention (FTP & SSH))
+Jump to navigationJump to search
+To stop SSH/FTP attacks on your router, follow this advice.
+
+This configuration allows only 10 FTP login incorrect answers per minute
+
+in /ip firewall filter
+
+add chain=input protocol=tcp dst-port=21 src-address-list=ftp_blacklist action=drop \
+comment="drop ftp brute forcers"
+
+add chain=output action=accept protocol=tcp content="530 Login incorrect" dst-limit=1/1m,9,dst-address/1m
+
+add chain=output action=add-dst-to-address-list protocol=tcp content="530 Login incorrect" \
+address-list=ftp_blacklist address-list-timeout=3h
+
+This will prevent a SSH brute forcer to be banned for 10 days after repetitive attempts. Change the timeouts as necessary.
+
+
+in /ip firewall filter
+
+add chain=input protocol=tcp dst-port=22 src-address-list=ssh_blacklist action=drop \
+comment="drop ssh brute forcers" disabled=no
+
+add chain=input protocol=tcp dst-port=22 connection-state=new \
+src-address-list=ssh_stage3 action=add-src-to-address-list address-list=ssh_blacklist \
+address-list-timeout=10d comment="" disabled=no
+
+add chain=input protocol=tcp dst-port=22 connection-state=new \
+src-address-list=ssh_stage2 action=add-src-to-address-list address-list=ssh_stage3 \
+address-list-timeout=1m comment="" disabled=no
+
+add chain=input protocol=tcp dst-port=22 connection-state=new src-address-list=ssh_stage1 \
+action=add-src-to-address-list address-list=ssh_stage2 address-list-timeout=1m comment="" disabled=no
+
+add chain=input protocol=tcp dst-port=22 connection-state=new action=add-src-to-address-list \
+address-list=ssh_stage1 address-list-timeout=1m comment="" disabled=no
+If you want to block downstream access as well, you need to block the with the forward chain:
+
+add chain=forward protocol=tcp dst-port=22 src-address-list=ssh_blacklist action=drop \
+comment="drop ssh brute downstream" disabled=no
+To view the contents of your Blacklist, go to "/ip firewall address-list" and type "print" to see the contents.
